@@ -14,6 +14,7 @@ class GameObject;
 
 typedef std::list<D3DXVECTOR3> WaypointList;
 
+
 enum MovementMode
 {
 	MOVEMENT_NULL,
@@ -89,6 +90,9 @@ protected:
 	D3DXVECTOR3 m_goal;
 
 	WaypointList m_waypointList;
+	
+	
+	void DrawParentPathAndMove(const std::vector<std::pair<int, int>>& _path);
 
 	float m_speedWalk;
 	float m_speedJog;

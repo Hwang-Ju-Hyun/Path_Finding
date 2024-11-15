@@ -38,7 +38,23 @@ struct my_comp
 };
 
 
+void DrawPath(const std::vector<Node>& _path, DebugDrawingColor _eColor)
+{
+	for (int i = 0; i < _path.size() - 1; i++)
+	{
+		g_terrain.SetColor(_path[i].row, _path[i].col, _eColor);
+	}
+}
 
+void Movement::DrawParentPathAndMove(const std::vector<std::pair<int, int>>& _path)
+{
+	for (int i = _path.size() - 1; i > 0; i--)
+	{
+		D3DXVECTOR3 spot = g_terrain.GetCoordinates(_path[i].first, _path[i].second);
+		m_waypointList.push_back(spot);
+		g_terrain.SetColor(_path[i].first, _path[i].second, DEBUG_COLOR_YELLOW);
+	}	
+}
 
 bool Movement::ComputePath( int r, int c, bool newRequest )
 {
@@ -56,18 +72,7 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 
 	// project 2: change this flag to true
 	bool useAStar = true;
-	int col_cnt = 0;
-	/*if (useAStar)
-	{
-		std::vector<std::pair<int, int>> original_path;
-		original_path.push_back(make_pair(0,0));
-
-		Rubberband();
-		
-
-
-		return true;
-	}*/
+	int col_cnt = 0;	
 
 	if( useAStar )
 	{		
@@ -102,6 +107,19 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 		blue_list.push_back(start_Node);
 		
 
+		if (m_straightline)
+		{				
+			D3DXVECTOR3 spot = { target.x,target.y,target.z };			
+			int target_row = g_terrain.GetCoordinates(spot.x, spot.y).x;
+			int target_col = g_terrain.GetCoordinates(spot.x, spot.y).y;
+			int player_row = g_terrain.GetCoordinates(cur.x, cur.y).x;
+			int player_col = g_terrain.GetCoordinates(cur.x, cur.y).y;
+			
+			m_waypointList.push_back(spot);			
+			return true;
+		}
+
+
 		while (!open_list.empty())
 		{		
 			Node add_node;
@@ -113,7 +131,6 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 			int cur_Col = open_list.top().col;									
 			int cur_gx = open_list.top().gx;
 			close_list.push_back(open_list.top());			
-
 			open_list.pop();
 
 			if (cur_Row == r && cur_Col == c)//Ã£¾Ò´ç
@@ -136,27 +153,15 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 						result_path.push_back({ parent_row, parent_col });
 					}
 				}				
-					
-				for (int i = 0; i < blue_list.size()-1; i++)
-				{					
-					g_terrain.SetColor(blue_list[i].row, blue_list[i].col, DEBUG_COLOR_BLUE);
-				}
-
-				for (int i = 0; i < close_list.size() - 1; i++)
-				{
-					g_terrain.SetColor(close_list[i].row, close_list[i].col, DEBUG_COLOR_YELLOW);
-				}
-
-				for (int i = result_path.size() - 1; i>0; i--)
-				{
-					D3DXVECTOR3 spot = g_terrain.GetCoordinates(result_path[i].first, result_path[i].second);
-					m_waypointList.push_back(spot);
-					g_terrain.SetColor(result_path[i].first, result_path[i].second, DEBUG_COLOR_YELLOW);
-				}
-				result_path.clear();				
+									
+				DrawPath(blue_list,DEBUG_COLOR_BLUE);
+				DrawPath(close_list,DEBUG_COLOR_YELLOW);				
+				DrawParentPathAndMove(result_path);
+				result_path.clear();
 				return true;																				
 			}
-				
+			
+			
 			
 
 			for (int i = 0; i < 8; i++)
