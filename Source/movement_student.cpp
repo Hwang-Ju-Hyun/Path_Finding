@@ -42,15 +42,14 @@ struct my_comp
 
 bool Movement::ComputePath( int r, int c, bool newRequest )
 {
+
 	m_goal = g_terrain.GetCoordinates( r, c );
 	m_movementMode = MOVEMENT_WAYPOINT_LIST;
 
 	//Randomly meander toward goal (might get stuck at wall)
 	int curR, curC;
 	D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
-	g_terrain.GetRowColumn(&cur, &curR, &curC);
-
-	m_rubberband = false;
+	g_terrain.GetRowColumn(&cur, &curR, &curC);	
 
 	m_waypointList.clear();
 	m_waypointList.push_back(cur);
@@ -88,17 +87,17 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 		g_terrain.GetRowColumn(&target, &target_Row, &target_Col);
 
 		int max_RowCol = g_terrain.GetWidth();
-		bool search[1000][1000] = { false, };
+		bool close_grid[1000][1000] = { false, };
 
 		Node start_Node;
 		start_Node.row = start_Row;
 		start_Node.col = start_Col;
 		start_Node.gx = 0;
-		start_Node.parent = { -1,-1 };
+		start_Node.parent = { start_Node.row,start_Node.col };
 		start_Node.hx = (abs(target_Row - start_Row) + abs(target_Col - start_Col)) * 10;
 		start_Node.fx = start_Node.gx+start_Node.hx;
 		
-		search[start_Row][start_Col] = true;
+		close_grid[start_Row][start_Col] = true;
 		open_list.push(start_Node);
 		blue_list.push_back(start_Node);
 		
@@ -112,51 +111,53 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 		
 			int cur_Row = open_list.top().row;
 			int cur_Col = open_list.top().col;									
-			int cur_Weight = open_list.top().gx;
+			int cur_gx = open_list.top().gx;
 			close_list.push_back(open_list.top());			
 
+			open_list.pop();
 
 			if (cur_Row == r && cur_Col == c)//찾았당
-			{							
-				int parent_row = close_list.back().row;
-				int parent_col = close_list.back().col;
-				while (close_list.size())
-				{
-					if (parent_row == close_list.back().row && parent_col == close_list.back().col)
-					{
-						parent_row = close_list.back().parent.first;
-						parent_col = close_list.back().parent.second;
-						if (parent_row == -1 || parent_col == -1)
-							break;
-						result_path.push_back({ parent_row, parent_col });												
-					}
-					close_list.pop_back();										
-				}				
-				
+			{											
 
-				if (m_rubberband)
-				{
-					for (int k = 0; k < rubber_path.size(); k++)
-					{
-						D3DXVECTOR3 spot = g_terrain.GetCoordinates(rubber_path[k].row, rubber_path[k].col);
-						m_waypointList.push_back(spot);
-						g_terrain.SetColor(rubber_path[k].row, rubber_path[k].col, DEBUG_COLOR_YELLOW);
+				//parent path
+				int parent_row = close_list[close_list.size()-1].row;
+				int parent_col = close_list[close_list.size()-1].col;
+				for (int i = close_list.size()-1; i > 0; i--)
+				{					
+					if (parent_row == close_list[i].row && parent_col == close_list[i].col)
+					{						
+						parent_row = close_list[i].parent.first;
+						parent_col = close_list[i].parent.second;
+						if (parent_row == start_Node.row && parent_col == start_Node.col)
+						{
+							result_path.push_back({ parent_row, parent_col });
+							break;
+						}							
+						result_path.push_back({ parent_row, parent_col });
 					}
-					rubber_path.clear();
-					return true;
+				}				
+					
+				for (int i = 0; i < blue_list.size()-1; i++)
+				{					
+					g_terrain.SetColor(blue_list[i].row, blue_list[i].col, DEBUG_COLOR_BLUE);
 				}
-				for (int z = result_path.size(); z--; z > 0)
+
+				for (int i = 0; i < close_list.size() - 1; i++)
 				{
-					D3DXVECTOR3 spot = g_terrain.GetCoordinates(result_path[z].first, result_path[z].second);
-					m_waypointList.push_back(spot);
-					g_terrain.SetColor(result_path[z].first, result_path[z].second, DEBUG_COLOR_YELLOW);
+					g_terrain.SetColor(close_list[i].row, close_list[i].col, DEBUG_COLOR_YELLOW);
 				}
-				result_path.clear();
-				rubber_path.clear();
+
+				for (int i = result_path.size() - 1; i>0; i--)
+				{
+					D3DXVECTOR3 spot = g_terrain.GetCoordinates(result_path[i].first, result_path[i].second);
+					m_waypointList.push_back(spot);
+					g_terrain.SetColor(result_path[i].first, result_path[i].second, DEBUG_COLOR_YELLOW);
+				}
+				result_path.clear();				
 				return true;																				
 			}
 				
-			open_list.pop();
+			
 
 			for (int i = 0; i < 8; i++)
 			{				
@@ -169,7 +170,7 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 					continue;
 				if(g_terrain.IsWall(next_Row,next_Col))
 					continue;
-				if (search[next_Row][next_Col])
+				if (close_grid[next_Row][next_Col])
 					continue;								
 
 				//대각선으로 벽이 있을 경우
@@ -188,17 +189,18 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 								
 				if (i < 4)
 				{
-					add_node.gx = cur_Weight + 10;
+					add_node.gx = cur_gx + 10;
 				}
 				else
 				{
-					add_node.gx = cur_Weight + 14;
+					add_node.gx = cur_gx + 14;
 				}
 				add_node.hx = (abs(target_Row - next_Row) + abs(target_Col - next_Col)) * 10;//맨헤튼				
 				add_node.fx = add_node.gx + add_node.hx;
 				
 				add_node.parent = { cur_Row,cur_Col };
-				search[next_Row][next_Col] = true;
+				close_grid[next_Row][next_Col] = true;
+				blue_list.push_back(add_node);
 				open_list.push(add_node); 				
 			}
 		}
