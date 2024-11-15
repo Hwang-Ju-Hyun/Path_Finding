@@ -84,8 +84,10 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 		int col_cnt = 0;
 
 		int start_Row, start_Col;
+		int cur_Row, cur_Col;
 		D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
 		g_terrain.GetRowColumn(&cur, &start_Row, &start_Col);		
+		g_terrain.GetRowColumn(&cur, &cur_Row, &cur_Col);
 
 		int target_Row, target_Col;
 		D3DXVECTOR3 target = m_goal;
@@ -108,13 +110,9 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 		
 
 		if (m_straightline)
-		{				
-			D3DXVECTOR3 spot = { target.x,target.y,target.z };			
-			int target_row = g_terrain.GetCoordinates(spot.x, spot.y).x;
-			int target_col = g_terrain.GetCoordinates(spot.x, spot.y).y;
-			int player_row = g_terrain.GetCoordinates(cur.x, cur.y).x;
-			int player_col = g_terrain.GetCoordinates(cur.x, cur.y).y;
-			
+		{					
+			D3DXVECTOR3 spot = { target.x,target.y,target.z };
+
 			m_waypointList.push_back(spot);			
 			return true;
 		}
