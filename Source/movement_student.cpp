@@ -37,6 +37,25 @@ struct my_comp
 	}
 };
 
+enum HEURISTIC
+{
+    MANHATTAN=0,
+    OTILE=1,
+    CHEVYSHEV=2,    
+    EUCLIDEAN=3
+};
+
+int GetHeuristic(int _startRow,int _startCol,int _targetRow, int _targetCol, enum HEURISTIC _h)
+{
+    if (_h == HEURISTIC::MANHATTAN)
+    {
+        return (abs(_targetRow - _startRow) + abs(_targetCol - _startCol)) * 10;
+    }
+    else if (_h == HEURISTIC::OTILE)
+    {
+        return std::sqrt(std::pow(_targetRow - _startRow, 2) + (std::pow(_targetCol - _startCol, 2), 2));
+    }    
+}
 
 void DrawPath(const std::vector<Node>& _path, DebugDrawingColor _eColor)
 {
@@ -155,7 +174,7 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
         start_Node.col = start_Col;
         start_Node.gx = 0;
         start_Node.parent = { start_Node.row, start_Node.col };
-        start_Node.hx = (abs(target_Row - start_Row) + abs(target_Col - start_Col)) * 10;
+        start_Node.hx = GetHeuristic(start_Row,start_Col,target_Row,target_Col,HEURISTIC::MANHATTAN);
         start_Node.fx = start_Node.gx + start_Node.hx;
 
         close_grid[start_Row][start_Col] = true;
