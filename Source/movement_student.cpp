@@ -174,7 +174,7 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
         start_Node.col = start_Col;
         start_Node.gx = 0;
         start_Node.parent = { start_Node.row, start_Node.col };
-        start_Node.hx = GetHeuristic(start_Row,start_Col,target_Row,target_Col,HEURISTIC::MANHATTAN);
+        start_Node.hx = 0;//GetHeuristic(start_Row,start_Col,target_Row,target_Col,HEURISTIC::MANHATTAN);
         start_Node.fx = start_Node.gx + start_Node.hx;
 
         close_grid[start_Row][start_Col] = true;
@@ -299,7 +299,7 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                 {
                     add_node.gx = cur_gx + 14;
                 }
-                add_node.hx = (abs(target_Row - next_Row) + abs(target_Col - next_Col)) * 10;
+                add_node.hx = 0;//(abs(target_Row - next_Row) + abs(target_Col - next_Col)) * 10;
                 add_node.fx = add_node.gx + add_node.hx;
 
                 add_node.parent = { cur_Row, cur_Col };
