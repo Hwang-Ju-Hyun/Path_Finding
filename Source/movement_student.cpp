@@ -59,14 +59,14 @@ void Movement::DrawParentPathAndMove(const std::vector<std::pair<int, int>>& _pa
 bool IsLineClear(int startRow, int startCol, int endRow, int endCol)
 {
     // Bresenham's Line Algorithm or similar technique to check for obstacles in a straight line
-    int dx = abs(endCol - startCol);
-    int dy = abs(endRow - startRow);
-    int sx = (startCol < endCol) ? 1 : -1;
-    int sy = (startRow < endRow) ? 1 : -1;
-    int err = dx - dy;
+    int delta_col = abs(endCol - startCol);
+    int delta_row = abs(endRow - startRow);
+    int col = (startCol < endCol) ? 1 : -1;
+    int row = (startRow < endRow) ? 1 : -1;
+    int err = delta_col - delta_row;
 
     // Determine the number of steps required based on the largest dimension (dx or dy)
-    int maxSteps = max(dx, dy);
+    int maxSteps = max(delta_col, delta_row);
 
     // Use a for loop to iterate through each step from the start to the end
     for (int i = 0; i <= maxSteps; i++)
@@ -82,19 +82,34 @@ bool IsLineClear(int startRow, int startCol, int endRow, int endCol)
         // Update the error term and adjust the row/column as necessary
         int e2 = err * 2;
 
-        if (e2 > -dy)
+        if (e2 > -delta_row)
         {
-            err -= dy;
-            startCol += sx;
+            err -= delta_row;
+            startCol += col;
         }
-        if (e2 < dx)
+        if (e2 < delta_col)
         {
-            err += dx;
-            startRow += sy;
+            err += delta_col;
+            startRow += row;
         }
     }
-
     return true;
+}
+
+void erase_element(std::vector<std::pair<int, int>>* _vec,int _idx)
+{        
+    for (int i = 0; i < _vec->size();)
+    {
+        if (i == _idx)
+        {
+            _vec->erase(_vec->begin() + i);
+            break;
+        }
+        else
+        {
+            i++;
+        }            
+    }
 }
 
 
@@ -146,18 +161,17 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
         close_grid[start_Row][start_Col] = true;
         open_list.push(start_Node);
         blue_list.push_back(start_Node);
-
-        // Handle straight-line path case
+        
         if (m_straightline)
         {
-            // Check if a straight path is possible
+
             if (IsLineClear(cur_Row, cur_Col, target_Row, target_Col))
             {
                 D3DXVECTOR3 spot = { target.x, target.y, target.z };
                 m_waypointList.push_back(spot);
                 return true;
-            }           
-        }
+            }
+        }        
 
         while (!open_list.empty())
         {
@@ -187,13 +201,47 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                             break;
                         }
                         result_path.push_back({ parent_row, parent_col });
+                    }   
+                }       
+                std::vector<std::pair<int, int>> rubberband_path;
+                if (m_rubberband)
+                {                    
+                    for(int i = 0; i < result_path.size(); i++)                    
+                        rubberband_path.push_back({ result_path[i].first,result_path[i].second });
+                        
+                    for (int i = rubberband_path.size()-1; i >0; i--)
+                    {    
+                        if (i <= 2)
+                        {                            
+                            break;
+                        }
+                        int n1_row = rubberband_path[i].first;
+                        int n1_col = rubberband_path[i].second;
+                        int n2_row = rubberband_path[i-1].first;
+                        int n2_col = rubberband_path[i - 1].second;
+                        int n3_row = rubberband_path[i - 2].first;
+                        int n3_col = rubberband_path[i - 2].second;
+                        if (IsLineClear(n1_row,n1_col,n3_row,n3_col))
+                        {
+                            erase_element(&rubberband_path, i-1);
+                        }
+                        else
+                        {
+                            continue;
+                        }                        
                     }
                 }
-
-                DrawPath(blue_list, DEBUG_COLOR_BLUE);
-                DrawPath(close_list, DEBUG_COLOR_YELLOW);
-                DrawParentPathAndMove(result_path);
-                result_path.clear();
+                if (m_rubberband)
+                {
+                    DrawParentPathAndMove(rubberband_path);                    
+                }
+                else
+                {
+                    DrawPath(blue_list, DEBUG_COLOR_BLUE);
+                    DrawPath(close_list, DEBUG_COLOR_YELLOW);
+                    DrawParentPathAndMove(result_path);
+                    result_path.clear();
+                }                
                 return true;
             }
 
