@@ -39,22 +39,25 @@ struct my_comp
 
 enum HEURISTIC
 {
-    MANHATTAN=0,
+    EUCLIDEAN=0,
     OTILE=1,
     CHEVYSHEV=2,    
-    EUCLIDEAN=3
+    MANHATTAN=3
 };
 
-int GetHeuristic(int _startRow,int _startCol,int _targetRow, int _targetCol, enum HEURISTIC _h)
-{
-    if (_h == HEURISTIC::MANHATTAN)
+int Movement::GetHeuristic(int _startRow,int _startCol,int _targetRow, int _targetCol, enum HEURISTIC _h)
+{    
+    switch (_h)
     {
+    case HEURISTIC::EUCLIDEAN:
+        return int((sqrt(pow(_targetRow - _startRow, 2) + pow(_targetCol - _startCol, 2))*10));
+    case HEURISTIC::OTILE:
+        return max(abs(_targetRow - _startRow)*10, abs(_targetCol - _startCol)*10) + (sqrt(2) - 1)*10 * min(abs(_targetRow - _startRow)*10, abs(_targetCol - _startCol)*10);
+    case HEURISTIC::CHEVYSHEV:
+        return max(abs(_targetRow - _startRow)*10, abs(_targetCol - _startCol)*10);
+    case HEURISTIC::MANHATTAN:
         return (abs(_targetRow - _startRow) + abs(_targetCol - _startCol)) * 10;
-    }
-    else if (_h == HEURISTIC::OTILE)
-    {
-        return std::sqrt(std::pow(_targetRow - _startRow, 2) + (std::pow(_targetCol - _startCol, 2), 2));
-    }    
+    }   
 }
 
 void DrawPath(const std::vector<Node>& _path, DebugDrawingColor _eColor)
@@ -186,7 +189,6 @@ std::vector<D3DXVECTOR3> CatmullRom(const std::vector<D3DXVECTOR3>& _points, int
     return smoothPth;
 }
 
-
 std::vector<D3DXVECTOR3> SmoothPathWithCatmullRom(const std::vector<std::pair<int, int>>& _path, int _segment)
 {
     std::vector<D3DXVECTOR3> controlPoints;
@@ -205,9 +207,8 @@ std::vector<D3DXVECTOR3> SmoothPathWithCatmullRom(const std::vector<std::pair<in
 bool Movement::ComputePath(int r, int c, bool newRequest)
 {            
     m_goal = g_terrain.GetCoordinates(r, c);
-    m_movementMode = MOVEMENT_WAYPOINT_LIST;
+    m_movementMode = MOVEMENT_WAYPOINT_LIST;    
 
-    std::cout <<r<<","<<c << std::endl;
 
     int curR, curC;
     D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
@@ -246,7 +247,7 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
         start_Node.col = start_Col;
         start_Node.gx = 0;
         start_Node.parent = { start_Node.row, start_Node.col };
-        start_Node.hx = GetHeuristic(start_Row,start_Col,target_Row,target_Col,HEURISTIC::MANHATTAN);
+        start_Node.hx = GetHeuristic(start_Row,start_Col,target_Row,target_Col,HEURISTIC(GetHeuristicCalc()));
         start_Node.fx = start_Node.gx + start_Node.hx;
 
         close_grid[start_Row][start_Col] = true;
@@ -335,11 +336,14 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                 else if (m_rubberband)
                 {
                     DrawParentPathAndMove(rubberband_path);                         
+                    rubberband_path.clear();
                 }
                 else
                 {                                    
                     DrawParentPathAndMove(result_path);
                     result_path.clear();
+                    close_list.clear();
+                    blue_list.clear();
                 }                
                 return true;
             }
@@ -378,8 +382,8 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                 else
                 {
                     add_node.gx = cur_gx + 14;
-                }
-                add_node.hx = (abs(target_Row - next_Row) + abs(target_Col - next_Col)) * 10;
+                }                
+                add_node.hx = GetHeuristic(next_Row, next_Col,target_Row, target_Col, (HEURISTIC)GetHeuristicCalc());
                 add_node.fx = add_node.gx + add_node.hx;
 
                 add_node.parent = { cur_Row, cur_Col };
