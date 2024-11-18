@@ -91,7 +91,7 @@ protected:
 
 	WaypointList m_waypointList;
 	
-	int GetHeuristic(int _startRow, int _startCol, int _targetRow, int _targetCol, enum HEURISTIC _h);
+	int GetHeuristic(int _startRow, int _startCol, int _targetRow, int _targetCol, enum HEURISTIC _h, float _weight);
 	void DrawParentPathAndMove(const std::vector<std::pair<int, int>>& _path);
 
 	float m_speedWalk;

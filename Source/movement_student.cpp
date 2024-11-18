@@ -45,18 +45,18 @@ enum HEURISTIC
     MANHATTAN=3
 };
 
-int Movement::GetHeuristic(int _startRow,int _startCol,int _targetRow, int _targetCol, enum HEURISTIC _h)
-{    
+int Movement::GetHeuristic(int _startRow,int _startCol,int _targetRow, int _targetCol, enum HEURISTIC _h,float _weight)
+{        
     switch (_h)
     {
     case HEURISTIC::EUCLIDEAN:
-        return int((sqrt(pow(_targetRow - _startRow, 2) + pow(_targetCol - _startCol, 2))*10));
+        return int((sqrt(pow(_targetRow - _startRow, 2) + pow(_targetCol - _startCol, 2))*100*_weight));
     case HEURISTIC::OTILE:
-        return max(abs(_targetRow - _startRow)*10, abs(_targetCol - _startCol)*10) + (sqrt(2) - 1)*10 * min(abs(_targetRow - _startRow)*10, abs(_targetCol - _startCol)*10);
+        return max(abs(_targetRow - _startRow)*100*_weight, abs(_targetCol - _startCol)*100 * _weight) + (sqrt(2) - 1)*100 * min(abs(_targetRow - _startRow)*100 * _weight, abs(_targetCol - _startCol)*100 * _weight);
     case HEURISTIC::CHEVYSHEV:
-        return max(abs(_targetRow - _startRow)*10, abs(_targetCol - _startCol)*10);
+        return max(abs(_targetRow - _startRow)*100 * _weight, abs(_targetCol - _startCol)*100 * _weight);
     case HEURISTIC::MANHATTAN:
-        return (abs(_targetRow - _startRow) + abs(_targetCol - _startCol)) * 10;
+        return (abs(_targetRow - _startRow) + abs(_targetCol - _startCol)) * 100 * _weight;
     }   
 }
 
@@ -136,37 +136,12 @@ void erase_element(std::vector<std::pair<int, int>>* _vec,int _idx)
 }
 
 
-void SmoothPath(std::vector<std::pair<int, int>>& _path)
-{
-    if (_path.size() < 3)
-        return;
-
-    std::vector<std::pair<int, int>> smoothPath;
-    smoothPath.push_back(_path[0]);
-
-    for (size_t i = 1; i < _path.size() - 1; ++i)
-    {
-        auto previous_point = _path[i - 1];
-        auto current_point = _path[i];
-        auto next_point = _path[i + 1];
-
-        float newX = (previous_point.first + current_point.first + next_point.first) / 3.0f;
-        float newY = (previous_point.second + current_point.second + next_point.second) / 3.0f;
-
-        smoothPath.push_back({(int)newX,(int)newY });
-    }
-
-    smoothPath.push_back(_path[_path.size() - 1]);
-    _path = smoothPath;
-}
-
 std::vector<D3DXVECTOR3> CatmullRom(const std::vector<D3DXVECTOR3>& _points, int _segment)
 {
     std::vector<D3DXVECTOR3> smoothPth;
 
     if (_points.size() < 4)
-    {
-        
+    {        
         return smoothPth;
     }
 
@@ -192,23 +167,24 @@ std::vector<D3DXVECTOR3> CatmullRom(const std::vector<D3DXVECTOR3>& _points, int
 std::vector<D3DXVECTOR3> SmoothPathWithCatmullRom(const std::vector<std::pair<int, int>>& _path, int _segment)
 {
     std::vector<D3DXVECTOR3> controlPoints;
-    std::vector<D3DXVECTOR3> smoothedPath;
+    std::vector<D3DXVECTOR3> smoothPath;
 
     for (int i = 0; i < _path.size(); i++)
     {
         controlPoints.push_back(g_terrain.GetCoordinates(_path[i].first, _path[i].second));
     }   
-    smoothedPath = CatmullRom(controlPoints, _segment);
-    return smoothedPath;
+    smoothPath = CatmullRom(controlPoints, _segment);
+    return smoothPath;
 }
 
 
 
 bool Movement::ComputePath(int r, int c, bool newRequest)
-{            
+{                
     m_goal = g_terrain.GetCoordinates(r, c);
-    m_movementMode = MOVEMENT_WAYPOINT_LIST;    
+    m_movementMode = MOVEMENT_WAYPOINT_LIST;        
 
+    
 
     int curR, curC;
     D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
@@ -222,12 +198,11 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
 
     if (useAStar)
     {
-        std::priority_queue<Node, std::vector<Node>, my_comp> open_list;
-        std::vector<Node> close_list;
-        std::vector<Node> blue_list;
-        std::vector<std::pair<int, int>> result_path;
-        std::vector<Node> rubber_path;
-        int col_cnt = 0;
+        static std::priority_queue<Node, std::vector<Node>, my_comp> open_list;
+        static std::vector<Node> close_list;
+        static std::vector<Node> blue_list;
+        static std::vector<std::pair<int, int>> result_path;
+        static std::vector<Node> rubber_path;        
 
         int start_Row, start_Col;
         int cur_Row, cur_Col;
@@ -241,13 +216,13 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
 
         int max_RowCol = g_terrain.GetWidth();
         bool close_grid[1000][1000] = { false, };
-
+        
         Node start_Node;
         start_Node.row = start_Row;
         start_Node.col = start_Col;
         start_Node.gx = 0;
         start_Node.parent = { start_Node.row, start_Node.col };
-        start_Node.hx = GetHeuristic(start_Row,start_Col,target_Row,target_Col,HEURISTIC(GetHeuristicCalc()));
+        start_Node.hx = GetHeuristic(start_Row,start_Col,target_Row,target_Col,HEURISTIC(GetHeuristicCalc()),GetHeuristicWeight());
         start_Node.fx = start_Node.gx + start_Node.hx;
 
         close_grid[start_Row][start_Col] = true;
@@ -291,7 +266,7 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                     }
                 }
                 
-                std::vector<std::pair<int, int>> rubberband_path;
+                static std::vector<std::pair<int, int>> rubberband_path;
                 if (m_rubberband)
                 {                    
                     for(int i = 0; i < result_path.size(); i++)                    
@@ -362,7 +337,7 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                 if (close_grid[next_Row][next_Col])
                     continue;
 
-                if (i >= 4)//i>=4이상이면 대각선이라는 뜻
+                if (i >= 4)
                 {
                     int adj_Row1 = cur_Row + direct_Row[i];
                     int adj_Col1 = cur_Col;
@@ -383,7 +358,7 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                 {
                     add_node.gx = cur_gx + 14;
                 }                
-                add_node.hx = GetHeuristic(next_Row, next_Col,target_Row, target_Col, (HEURISTIC)GetHeuristicCalc());
+                add_node.hx = GetHeuristic(next_Row, next_Col,target_Row, target_Col, (HEURISTIC)GetHeuristicCalc(), GetHeuristicWeight());
                 add_node.fx = add_node.gx + add_node.hx;
 
                 add_node.parent = { cur_Row, cur_Col };
