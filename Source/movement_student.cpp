@@ -46,17 +46,17 @@ enum HEURISTIC
 };
 
 int Movement::GetHeuristic(int _startRow, int _startCol, int _targetRow, int _targetCol, enum HEURISTIC _h, float _weight)
-{
+{    
     switch (_h)
     {
     case HEURISTIC::EUCLIDEAN:
-        return int((sqrt(pow(_targetRow - _startRow, 2) + pow(_targetCol - _startCol, 2)) * 100 * _weight));
+        return int((sqrt(pow(_targetRow - _startRow, 2) + pow(_targetCol - _startCol, 2)) * 10 * _weight));
     case HEURISTIC::OTILE:
-        return max(abs(_targetRow - _startRow) * 100 * _weight, abs(_targetCol - _startCol) * 100 * _weight) + (sqrt(2) - 1) * 100 * min(abs(_targetRow - _startRow) * 100 * _weight, abs(_targetCol - _startCol) * 100 * _weight);
+        return max(abs(_targetRow - _startRow) * 10 * _weight, abs(_targetCol - _startCol) * 10 * _weight) + (sqrt(2) - 1) * 10 * min(abs(_targetRow - _startRow) * 10 * _weight, abs(_targetCol - _startCol) * 10 * _weight);
     case HEURISTIC::CHEVYSHEV:
-        return max(abs(_targetRow - _startRow) * 100 * _weight, abs(_targetCol - _startCol) * 100 * _weight);
+        return max(abs(_targetRow - _startRow) * 10 * _weight, abs(_targetCol - _startCol) * 10 * _weight);
     case HEURISTIC::MANHATTAN:
-        return (abs(_targetRow - _startRow) + abs(_targetCol - _startCol)) * 100 * _weight;
+        return (abs(_targetRow - _startRow) + abs(_targetCol - _startCol)) * 10 * _weight;
     }
 }
 
@@ -78,8 +78,7 @@ void Movement::DrawParentPathAndMove(const std::vector<std::pair<int, int>>& _pa
     }
 }
 
-//ºê·¹Á¨Çè ¾Ë°í¸®Áò? ¾¾¹ß ¸ô¶ó¼­ °Á ºí·Î±× ±×´ë·Î »¯±è
-//Todo: errº¯¼ö¶û ÇÏ´ÂÀÏ ÀÌÇØÇÏ±â
+//ºê·¹Á¨Çð ¾Ë°í¸®Áò
 bool GoStraight(int startRow, int startCol, int endRow, int endCol)
 {
     int delta_col = abs(endCol - startCol);
@@ -87,7 +86,6 @@ bool GoStraight(int startRow, int startCol, int endRow, int endCol)
     int col = (startCol < endCol) ? 1 : -1;
     int row = (startRow < endRow) ? 1 : -1;
     int err = delta_col - delta_row;
-
 
     int maxSteps = max(delta_col, delta_row);
 
@@ -209,18 +207,20 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
     static std::priority_queue<Node, std::vector<Node>, my_comp> open_list;
     static std::vector<Node> close_list;
     static std::vector<Node> blue_list;
-    static std::vector<std::pair<int, int>> result_path;
-    static std::vector<Node> rubber_path;
+   
     static bool close_grid[1000][1000] = { false, };
+
+    m_goal = g_terrain.GetCoordinates(r, c);
+
     int max_RowCol = g_terrain.GetWidth();
-    
     int target_Row, target_Col;
+
     D3DXVECTOR3 target = m_goal;
     g_terrain.GetRowColumn(&target, &target_Row, &target_Col);
 
     if (newRequest)
     {
-        m_goal = g_terrain.GetCoordinates(r, c);
+        
         m_movementMode = MOVEMENT_WAYPOINT_LIST;
 
         int curR, curC;
@@ -230,9 +230,8 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
         m_waypointList.clear();
         m_waypointList.push_back(cur);
 
-
         int start_Row, start_Col;
-        int cur_Row, cur_Col;        
+               
         g_terrain.GetRowColumn(&cur, &start_Row, &start_Col);        
 
         Node start_Node;
@@ -245,10 +244,16 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
 
         close_grid[start_Row][start_Col] = true;
         open_list.push(start_Node);
-        blue_list.push_back(start_Node);
-
-
-                
+        blue_list.push_back(start_Node);                
+        if (m_straightline)
+        {
+            if (GoStraight(curR, curC, target_Row, target_Col))
+            {
+                D3DXVECTOR3 spot = { target.x, target.y, target.z };
+                m_waypointList.push_back(spot);
+                return true;
+            }
+        }
     }
     
 
@@ -256,18 +261,8 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
     
 
     if (useAStar)
-    {
-        
-        
-        //if (m_straightline)
-        //{
-        //    if (GoStraight(cur_Row, cur_Col, target_Row, target_Col))
-        //    {
-        //        D3DXVECTOR3 spot = { target.x, target.y, target.z };
-        //        m_waypointList.push_back(spot);
-        //        return true;
-        //    }
-        //}
+    {                
+
 
         while (!open_list.empty())
         {
@@ -284,10 +279,11 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
 
             if (cur_Row == r && cur_Col == c)
             {
+                std::vector<std::pair<int, int>> result_path;
                 int parent_row = close_list[close_list.size() - 1].row;
                 int parent_col = close_list[close_list.size() - 1].col;
                 result_path.push_back({ close_list[close_list.size() - 1].row, close_list[close_list.size() - 1].col });
-                for (int i = close_list.size() - 1; i > 0; i--)
+                for (int i = close_list.size() - 1; i >= 0; i--)
                 {
                     if (parent_row == close_list[i].row && parent_col == close_list[i].col)
                     {
@@ -297,61 +293,61 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                     }
                 }
                 
-                //std::vector<std::pair<int, int>> rubberband_path;
-                //if (m_rubberband)
-                //{
-                //    for (int i = 0; i < result_path.size(); i++)
-                //        rubberband_path.push_back({ result_path[i].first,result_path[i].second });
-                //
-                //    for (int i = rubberband_path.size() - 1; i >= 0; i--)
-                //    {
-                //        if (i <= 2)
-                //        {
-                //            break;
-                //        }
-                //        int n1_row = rubberband_path[i].first;
-                //        int n1_col = rubberband_path[i].second;
-                //        int n2_row = rubberband_path[i - 1].first;
-                //        int n2_col = rubberband_path[i - 1].second;
-                //        int n3_row = rubberband_path[i - 2].first;
-                //        int n3_col = rubberband_path[i - 2].second;
-                //        if (GoStraight(n1_row, n1_col, n3_row, n3_col))
-                //        {
-                //            erase_element(&rubberband_path, i - 1);
-                //        }
-                //        else
-                //        {
-                //            continue;
-                //        }
-                //    }
-                //}
-                //std::vector<D3DXVECTOR3> smooth_path;
-                //
-                //DrawPath(blue_list, DEBUG_COLOR_BLUE);
-                //DrawPath(close_list, DEBUG_COLOR_YELLOW);
-                //
-                //if (m_smooth)
-                //{
-                //    smooth_path = SmoothPathWithCatmullRom(result_path, 10);
-                //    for (int i = smooth_path.size() - 1; i >= 0; i--)
-                //    {
-                //        D3DXVECTOR3 spot = { smooth_path[i].x, smooth_path[i].y,smooth_path[i].z };
-                //        m_waypointList.push_back(spot);
-                //    }
-                //}
-                //else if (m_rubberband)
-                //{
-                //    DrawParentPathAndMove(rubberband_path);
-                //    rubberband_path.clear();
-                //}
-                //else
-                //{
-                //    DrawParentPathAndMove(result_path);                    
-                //    result_path.clear();
-                //    close_list.clear();
-                //    blue_list.clear();
-                //}
-                DrawParentPathAndMove(result_path);
+                std::vector<std::pair<int, int>> rubberband_path;
+                if (m_rubberband)
+                {
+                    for (int i = 0; i < result_path.size(); i++)
+                        rubberband_path.push_back({ result_path[i].first,result_path[i].second });
+                
+                    for (int i = rubberband_path.size() - 1; i >= 0; i--)
+                    {
+                        if (i <= 2)
+                        {
+                            break;
+                        }
+                        int n1_row = rubberband_path[i].first;
+                        int n1_col = rubberband_path[i].second;
+                        int n2_row = rubberband_path[i - 1].first;
+                        int n2_col = rubberband_path[i - 1].second;
+                        int n3_row = rubberband_path[i - 2].first;
+                        int n3_col = rubberband_path[i - 2].second;
+                        if (GoStraight(n1_row, n1_col, n3_row, n3_col))
+                        {
+                            erase_element(&rubberband_path, i - 1);
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+                }
+                std::vector<D3DXVECTOR3> smooth_path;
+                                
+                DrawPath(blue_list, DEBUG_COLOR_BLUE);
+                DrawPath(close_list, DEBUG_COLOR_YELLOW);
+                
+                if (m_smooth)
+                {
+                    smooth_path = SmoothPathWithCatmullRom(result_path, 10);
+                    for (int i = smooth_path.size() - 1; i >= 0; i--)
+                    {
+                        D3DXVECTOR3 spot = { smooth_path[i].x, smooth_path[i].y,smooth_path[i].z };
+                        m_waypointList.push_back(spot);
+                    }
+                }
+                else if (m_rubberband)
+                {
+                    DrawParentPathAndMove(rubberband_path);
+                    rubberband_path.clear();
+                }
+                else
+                {
+                    DrawParentPathAndMove(result_path);                    
+                    result_path.clear();
+                    close_list.clear();
+                    blue_list.clear();
+                }                
+                
 
                 //µµÂøÇÏ¸é clear
                 result_path.clear();
@@ -409,10 +405,13 @@ bool Movement::ComputePath(int r, int c, bool newRequest)
                 
                 blue_list.push_back(add_node);
                 open_list.push(add_node);
+            }           
+            if (GetSingleStep())
+            {
+                DrawPath(blue_list, DEBUG_COLOR_BLUE);
+                DrawPath(close_list, DEBUG_COLOR_YELLOW);
+                return false;
             }            
-            DrawPath(blue_list, DEBUG_COLOR_BLUE);
-            DrawPath(close_list, DEBUG_COLOR_YELLOW);
-            return false;
         }        
         return true;
     }
